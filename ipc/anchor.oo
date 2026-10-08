@@ -1,0 +1,20 @@
+// # oobound IPC Module Anchor
+//
+// Logline: Integrates command options parsing, JSON parsing, and MCP stdio dispatch.
+//
+// Setup: Bridges user arguments and agent JSON-RPC messages to oobound core.
+//
+// Beats:
+//   1. Expose options parser.
+//   2. Expose JSON-RPC message dispatcher.
+//   3. Provide IPC subsystem verification anchor.
+
+import "ipc/json_field.oo";
+import "ipc/bound_opts.oo";
+import "ipc/mcp_serve.oo";
+
+pub fn verify_ipc_subsystem() -> Bool {
+    let req: String = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{}}";
+    let resp: String = handle_mcp_message(req);
+    return str_starts_with(resp, "{\"jsonrpc\":\"2.0\"");
+}

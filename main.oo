@@ -6,47 +6,95 @@
 //
 // Beats:
 //   1. Parse command-line options and dispatch --help, --version, or --mcp.
-//   2. Execute capability-bounded oobound operations.
-//   3. Format and output structured results to standard output.
+//   2. Derive active boundary limits from preset profiles and CLI overrides.
+//   3. Dispatch audit, JSON telemetry, systemd scope, or terminal summary output.
+
+import "core/bound_preset.oo";
+import "core/bound_calc.oo";
+import "render/bound_theme.oo";
+import "ipc/bound_opts.oo";
+import "ipc/mcp_serve.oo";
 
 fn render_help() -> String {
-    return "oobound 0.1.0 (openOODA sovereign agent & security)\n"
-        + "usage: oobound [options] [ARGUMENTS]...\n\n"
+    return "oobound 0.2.0 (openOODA sovereign agent & security)\n"
+        + "usage: oobound [options] [-- <COMMAND> [ARGS...]]\n\n"
         + "Dynamic memory, CPU cycle, and file descriptor clamp for unvetted subprocesses.\n\n"
         + "Options:\n"
-        + "  -h, --help           display this help and exit\n"
-        + "  -v, --version        output version information and exit\n"
-        + "      --json           output formatted as JSON Lines\n"
-        + "      --color <WHEN>   colorize output: auto, always, never [default: auto]\n"
-        + "      --theme <NAME>   override active oote palette\n"
-        + "      --mcp            run as Model Context Protocol stdio server\n";
+        + "  -P, --profile <NAME>   preset profile: sandbox, strict, worker, agent [default: strict]\n"
+        + "  -m, --mem <MB>         memory limit in megabytes [default: 512]\n"
+        + "  -c, --cpu <PERCENT>    CPU quota percentage [default: 100]\n"
+        + "  -f, --fds <COUNT>      file descriptor cap [default: 256]\n"
+        + "  -p, --procs <COUNT>    maximum process/task count [default: 64]\n"
+        + "  -t, --timeout <SEC>    maximum runtime timeout in seconds [default: 60]\n"
+        + "      --sandbox          enforce strict filesystem and privilege isolation\n"
+        + "      --no-sandbox       disable strict filesystem sandboxing flags\n"
+        + "      --format <MODE>    output format: full, systemd, prlimit, cgroup [default: full]\n"
+        + "      --audit            audit resource bounds against negative-trust baselines\n"
+        + "      --json             output formatted as JSON Lines\n"
+        + "      --color <WHEN>     colorize output: auto, always, never [default: auto]\n"
+        + "      --mcp              run as Model Context Protocol stdio server\n"
+        + "  -h, --help             display this help and exit\n"
+        + "  -v, --version          output version information and exit\n";
 }
 
-fn render_version() -> String {
-    return "oobound 0.1.0 (openOODA sovereign agent & security)\n";
-}
+pub fn main(
+    fs: &FsReadCap,
+    proc_cap: &ProcessCap,
+    env: &EnvCap,
+    args: List[String]
+) -> Result[Int, String] {
+    let opt: BoundOpts = parse_opts(args);
 
-fn main(args: List[String]) -> Int {
-    let num_args: Int = list_len(args);
-    let mut i: Int = 0;
-
-    while i < num_args {
-        let arg: String = list_get(args, i);
-        if arg == "-h" || arg == "--help" {
-            print(render_help());
-            return 0;
-        }
-        if arg == "-v" || arg == "--version" {
-            print(render_version());
-            return 0;
-        }
-        if arg == "--mcp" {
-            print("{\"jsonrpc\":\"2.0\",\"result\":{\"status\":\"ready\",\"tool\":\"oobound\"}}\n");
-            return 0;
-        }
-        i = i + 1;
+    if opt.show_help {
+        print(render_help());
+        return Ok(0);
+    }
+    if opt.show_version {
+        println("oobound 0.2.0 (openOODA sovereign agent & security)");
+        return Ok(0);
+    }
+    if opt.mcp_mode {
+        run_mcp_server(fs);
+        return Ok(0);
     }
 
-    print("oobound: sovereign capability-bounded utility ready\n");
-    return 0;
+    let mut b: BoundLimits = find_preset(opt.profile);
+    if opt.mem_mb != 512 || opt.profile == "custom" { b.mem_mb = opt.mem_mb; }
+    if opt.cpu_pct != 100 || opt.profile == "custom" { b.cpu_pct = opt.cpu_pct; }
+    if opt.max_fds != 256 || opt.profile == "custom" { b.max_fds = opt.max_fds; }
+    if opt.max_procs != 64 || opt.profile == "custom" { b.max_procs = opt.max_procs; }
+    if opt.timeout_sec != 60 || opt.profile == "custom" { b.timeout_sec = opt.timeout_sec; }
+    if !opt.sandboxed { b.sandboxed = false; }
+
+    if opt.audit_mode {
+        if opt.json_mode {
+            print(render_audit_json(b));
+        } else {
+            print(audit_bounds(b) + "\n");
+        }
+        return Ok(0);
+    }
+
+    if opt.json_mode {
+        print(render_limits_json(b, opt.command));
+        return Ok(0);
+    }
+
+    if opt.format == "systemd" {
+        print(generate_systemd_cmd(b, opt.command) + "\n");
+        return Ok(0);
+    }
+
+    if opt.format == "prlimit" {
+        print(generate_prlimit_cmd(b, opt.command) + "\n");
+        return Ok(0);
+    }
+
+    if opt.format == "cgroup" {
+        print(generate_cgroup_spec(b));
+        return Ok(0);
+    }
+
+    print(render_limits_panel(b, opt.command, opt.color_mode));
+    return Ok(0);
 }

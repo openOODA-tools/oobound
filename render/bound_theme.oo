@@ -1,0 +1,88 @@
+// # oobound Theme and Terminal Formatter
+//
+// Logline: Formats boundary cards, command lines, and JSON telemetry with ANSI palettes.
+//
+// Setup: Bridges core boundary specifications to human and machine renderers.
+//
+// Beats:
+//   1. Generate ANSI color codes and formatting tags.
+//   2. Render human-readable process boundary summary cards.
+//   3. Serialize boundary models into JSON Lines telemetry.
+//   4. Serialize preset catalogs and audit reports.
+
+import "core/bound_preset.oo";
+import "core/bound_calc.oo";
+
+fn esc() -> String {
+    return bytes_to_str(bytes_push(bytes_new(), 27));
+}
+
+pub fn render_limits_panel(b: BoundLimits, cmd: String, color: Bool) -> String {
+    let e: String = esc();
+    let c_cyan: String = if color { e + "[38;5;51m" } else { "" };
+    let c_green: String = if color { e + "[38;5;82m" } else { "" };
+    let c_yellow: String = if color { e + "[38;5;220m" } else { "" };
+    let c_dim: String = if color { e + "[38;5;242m" } else { "" };
+    let c_bold: String = if color { e + "[1m" } else { "" };
+    let c_rst: String = if color { e + "[0m" } else { "" };
+
+    let sys_cmd: String = generate_systemd_cmd(b, cmd);
+    let pr_cmd: String = generate_prlimit_cmd(b, cmd);
+
+    let mut out: String = "";
+    out = out + c_dim + "================================================================================" + c_rst + "\n";
+    out = out + "               " + c_cyan + c_bold + "oobound: Sovereign RUNTIME BOUNDS" + c_rst + "\n";
+    out = out + c_dim + "================================================================================" + c_rst + "\n";
+    out = out + "  Profile:            " + c_green + c_bold + b.name + c_rst + "\n";
+    out = out + "  Memory Maximum:     " + c_yellow + to_string(b.mem_mb) + " MB" + c_rst + " (" + to_string(b.mem_mb * 1048576) + " bytes)\n";
+    out = out + "  CPU Quota:          " + c_yellow + to_string(b.cpu_pct) + "%" + c_rst + "\n";
+    out = out + "  Max Descriptors:    " + c_yellow + to_string(b.max_fds) + " FDs" + c_rst + "\n";
+    out = out + "  Max Tasks / PIDs:   " + c_yellow + to_string(b.max_procs) + " threads" + c_rst + "\n";
+    out = out + "  Execution Timeout:  " + c_yellow + to_string(b.timeout_sec) + "s" + c_rst + "\n";
+    out = out + "  Sandbox Isolation:  " + if b.sandboxed { c_green + "enabled" + c_rst } else { c_dim + "disabled" + c_rst } + "\n";
+    out = out + c_dim + "--------------------------------------------------------------------------------" + c_rst + "\n";
+    out = out + "  " + c_bold + "Systemd-Run Scope:" + c_rst + "\n";
+    out = out + "    " + c_cyan + sys_cmd + c_rst + "\n";
+    out = out + "  " + c_bold + "Prlimit Equiv:" + c_rst + "\n";
+    out = out + "    " + c_cyan + pr_cmd + c_rst + "\n";
+    out = out + c_dim + "================================================================================" + c_rst + "\n";
+    return out;
+}
+
+pub fn render_limits_json(b: BoundLimits, cmd: String) -> String {
+    let sys_cmd: String = generate_systemd_cmd(b, cmd);
+    let pr_cmd: String = generate_prlimit_cmd(b, cmd);
+    return "{\"name\":\"" + b.name + "\""
+        + ",\"mem_mb\":" + to_string(b.mem_mb)
+        + ",\"mem_bytes\":" + to_string(b.mem_mb * 1048576)
+        + ",\"cpu_pct\":" + to_string(b.cpu_pct)
+        + ",\"max_fds\":" + to_string(b.max_fds)
+        + ",\"max_procs\":" + to_string(b.max_procs)
+        + ",\"timeout_sec\":" + to_string(b.timeout_sec)
+        + ",\"sandboxed\":" + if b.sandboxed { "true" } else { "false" }
+        + ",\"systemd_cmd\":\"" + sys_cmd + "\""
+        + ",\"prlimit_cmd\":\"" + pr_cmd + "\""
+        + "}\n";
+}
+
+pub fn render_audit_json(b: BoundLimits) -> String {
+    let report: String = audit_bounds(b);
+    let is_pass: Bool = str_starts_with(report, "PASS");
+    return "{\"profile\":\"" + b.name + "\""
+        + ",\"valid\":" + if is_pass { "true" } else { "false" }
+        + ",\"status\":\"" + if is_pass { "PASS" } else { "FAIL" } + "\""
+        + "}\n";
+}
+
+pub fn render_profiles_json() -> String {
+    let s: BoundLimits = preset_sandbox();
+    let st: BoundLimits = preset_strict();
+    let w: BoundLimits = preset_worker();
+    let a: BoundLimits = preset_agent();
+    return "{\"profiles\":["
+        + "{\"name\":\"" + s.name + "\",\"mem_mb\":" + to_string(s.mem_mb) + ",\"cpu_pct\":" + to_string(s.cpu_pct) + ",\"max_fds\":" + to_string(s.max_fds) + ",\"max_procs\":" + to_string(s.max_procs) + ",\"timeout_sec\":" + to_string(s.timeout_sec) + ",\"sandboxed\":true},"
+        + "{\"name\":\"" + st.name + "\",\"mem_mb\":" + to_string(st.mem_mb) + ",\"cpu_pct\":" + to_string(st.cpu_pct) + ",\"max_fds\":" + to_string(st.max_fds) + ",\"max_procs\":" + to_string(st.max_procs) + ",\"timeout_sec\":" + to_string(st.timeout_sec) + ",\"sandboxed\":true},"
+        + "{\"name\":\"" + w.name + "\",\"mem_mb\":" + to_string(w.mem_mb) + ",\"cpu_pct\":" + to_string(w.cpu_pct) + ",\"max_fds\":" + to_string(w.max_fds) + ",\"max_procs\":" + to_string(w.max_procs) + ",\"timeout_sec\":" + to_string(w.timeout_sec) + ",\"sandboxed\":false},"
+        + "{\"name\":\"" + a.name + "\",\"mem_mb\":" + to_string(a.mem_mb) + ",\"cpu_pct\":" + to_string(a.cpu_pct) + ",\"max_fds\":" + to_string(a.max_fds) + ",\"max_procs\":" + to_string(a.max_procs) + ",\"timeout_sec\":" + to_string(a.timeout_sec) + ",\"sandboxed\":true}"
+        + "]}\n";
+}

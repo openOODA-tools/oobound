@@ -4,7 +4,7 @@
 # "Removes oobound binary, package installations, and cache."
 #
 # Usage:
-#   curl -fsSL https://openooda-toobound.github.io/oobound/uninstall.sh | bash
+#   curl -fsSL https://openooda-tools.github.io/oobound/uninstall.sh | bash
 #   or: ./uninstall.sh [options]
 #
 # Options:

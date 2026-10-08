@@ -1,0 +1,19 @@
+// # oobound Core Module Anchor
+//
+// Logline: Exports and integrates core limit models and bounds calculation routines.
+//
+// Setup: Bridges presets and generation algorithms for consumers.
+//
+// Beats:
+//   1. Expose bound presets and structure definitions.
+//   2. Expose systemd and prlimit calculation functions.
+//   3. Provide unified core subsystem verification anchor.
+
+import "core/bound_preset.oo";
+import "core/bound_calc.oo";
+
+pub fn verify_core_subsystem() -> Bool {
+    let p: BoundLimits = preset_strict();
+    let s: String = audit_bounds(p);
+    return str_starts_with(s, "PASS");
+}

@@ -1,0 +1,88 @@
+// # oobound Resource Limit Presets
+//
+// Logline: Defines standard process limit profiles for unvetted code execution.
+//
+// Setup: Encapsulates memory ceilings, CPU quotas, descriptor caps, and timeouts.
+//
+// Beats:
+//   1. Declare the BoundLimits structure representation.
+//   2. Instantiate sandbox, strict, worker, and agent boundary profiles.
+//   3. Dispatch named profile lookups and fallback defaults.
+
+pub type BoundLimits = struct {
+    name: String,
+    mem_mb: Int,
+    cpu_pct: Int,
+    max_fds: Int,
+    max_procs: Int,
+    timeout_sec: Int,
+    sandboxed: Bool
+};
+
+pub fn preset_sandbox() -> BoundLimits {
+    return BoundLimits {
+        name: "sandbox",
+        mem_mb: 256,
+        cpu_pct: 50,
+        max_fds: 128,
+        max_procs: 32,
+        timeout_sec: 30,
+        sandboxed: true
+    };
+}
+
+pub fn preset_strict() -> BoundLimits {
+    return BoundLimits {
+        name: "strict",
+        mem_mb: 512,
+        cpu_pct: 100,
+        max_fds: 256,
+        max_procs: 64,
+        timeout_sec: 60,
+        sandboxed: true
+    };
+}
+
+pub fn preset_worker() -> BoundLimits {
+    return BoundLimits {
+        name: "worker",
+        mem_mb: 1024,
+        cpu_pct: 200,
+        max_fds: 1024,
+        max_procs: 256,
+        timeout_sec: 300,
+        sandboxed: false
+    };
+}
+
+pub fn preset_agent() -> BoundLimits {
+    return BoundLimits {
+        name: "agent",
+        mem_mb: 2048,
+        cpu_pct: 400,
+        max_fds: 4096,
+        max_procs: 512,
+        timeout_sec: 600,
+        sandboxed: true
+    };
+}
+
+pub fn preset_custom(mem: Int, cpu: Int, fds: Int, procs: Int, timeout: Int, sandboxed: Bool) -> BoundLimits {
+    return BoundLimits {
+        name: "custom",
+        mem_mb: mem,
+        cpu_pct: cpu,
+        max_fds: fds,
+        max_procs: procs,
+        timeout_sec: timeout,
+        sandboxed: sandboxed
+    };
+}
+
+pub fn find_preset(name: String) -> BoundLimits {
+    if name == "sandbox" { return preset_sandbox(); }
+    if name == "strict" { return preset_strict(); }
+    if name == "worker" { return preset_worker(); }
+    if name == "agent" { return preset_agent(); }
+    return preset_strict();
+}

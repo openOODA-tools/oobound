@@ -1,13 +1,22 @@
-// # oobound Root Anchor
+// # oobound Root Package Anchor
 //
-// Logline: Top-level anchor re-exporting options, core logic, render, and ipc subsystems.
+// Logline: Unified subsystem anchor for sovereign process boundary containment.
 //
-// Setup: Pure shim re-exporting all oobound subsystem anchors.
+// Setup: Bridges core calculations, renderers, and IPC communication layers.
 //
 // Beats:
-//   1. Re-export options parsing subsystem.
-//   2. Re-export core oobound execution engine.
-//   3. Re-export render formatting subsystem.
-//   4. Re-export Model Context Protocol (MCP) IPC subsystem.
+//   1. Verify core limits calculation subsystem.
+//   2. Verify terminal rendering and styling subsystem.
+//   3. Verify IPC options and MCP communication subsystem.
+//   4. Expose package readiness predicate.
 
-import "main.oo";
+import "core/anchor.oo";
+import "render/anchor.oo";
+import "ipc/anchor.oo";
+
+pub fn verify_oobound_package() -> Bool {
+    if !verify_core_subsystem() { return false; }
+    if !verify_render_subsystem() { return false; }
+    if !verify_ipc_subsystem() { return false; }
+    return true;
+}

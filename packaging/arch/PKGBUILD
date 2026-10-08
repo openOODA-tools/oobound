@@ -1,7 +1,7 @@
 # Maintainer: openOODA-tools <ops@openooda.org>
 pkgname=oobound-bin
 _pkgname=oobound
-pkgver=0.1.0
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Dynamic memory, CPU cycle, and file descriptor clamp for unvetted subprocesses."
 arch=('x86_64')

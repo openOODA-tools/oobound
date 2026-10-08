@@ -1,0 +1,135 @@
+// # oobound Command Line Options Parser
+//
+// Logline: Decodes CLI flags, process parameters, command trailers, and operational modes.
+//
+// Setup: Parses arguments into a structured BoundOpts configuration model.
+//
+// Beats:
+//   1. Define BoundOpts parameter structure.
+//   2. Parse integer flags for memory, CPU, descriptors, and timeouts.
+//   3. Dispatch operational modes for help, version, audit, and MCP.
+//   4. Collect target command strings from arguments.
+
+pub type BoundOpts = struct {
+    show_help: Bool,
+    show_version: Bool,
+    mcp_mode: Bool,
+    json_mode: Bool,
+    audit_mode: Bool,
+    color_mode: Bool,
+    profile: String,
+    mem_mb: Int,
+    cpu_pct: Int,
+    max_fds: Int,
+    max_procs: Int,
+    timeout_sec: Int,
+    sandboxed: Bool,
+    command: String,
+    format: String
+};
+
+fn parse_int(s: String, default_val: Int) -> Int {
+    let n: Int = chars_len(s);
+    if n == 0 { return default_val; }
+    let mut res: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(s, i);
+        if c == "0" { res = res * 10; }
+        else if c == "1" { res = res * 10 + 1; }
+        else if c == "2" { res = res * 10 + 2; }
+        else if c == "3" { res = res * 10 + 3; }
+        else if c == "4" { res = res * 10 + 4; }
+        else if c == "5" { res = res * 10 + 5; }
+        else if c == "6" { res = res * 10 + 6; }
+        else if c == "7" { res = res * 10 + 7; }
+        else if c == "8" { res = res * 10 + 8; }
+        else if c == "9" { res = res * 10 + 9; }
+        else { return default_val; }
+        i = i + 1;
+    }
+    return res;
+}
+
+pub fn parse_opts(args: List[String]) -> BoundOpts {
+    let mut opt: BoundOpts = BoundOpts {
+        show_help: false,
+        show_version: false,
+        mcp_mode: false,
+        json_mode: false,
+        audit_mode: false,
+        color_mode: true,
+        profile: "strict",
+        mem_mb: 512,
+        cpu_pct: 100,
+        max_fds: 256,
+        max_procs: 64,
+        timeout_sec: 60,
+        sandboxed: true,
+        command: "",
+        format: "full"
+    };
+
+    let n: Int = list_len(args);
+    let mut i: Int = 0;
+    let mut in_cmd: Bool = false;
+
+    while i < n {
+        let a: String = list_get(args, i);
+        if in_cmd {
+            if chars_len(opt.command) > 0 {
+                opt.command = opt.command + " " + a;
+            } else {
+                opt.command = a;
+            }
+        } else if a == "--" {
+            in_cmd = true;
+        } else if a == "-h" || a == "--help" {
+            opt.show_help = true;
+        } else if a == "-v" || a == "--version" {
+            opt.show_version = true;
+        } else if a == "--mcp" {
+            opt.mcp_mode = true;
+        } else if a == "--json" {
+            opt.json_mode = true;
+        } else if a == "--audit" {
+            opt.audit_mode = true;
+        } else if a == "--sandbox" {
+            opt.sandboxed = true;
+        } else if a == "--no-sandbox" {
+            opt.sandboxed = false;
+        } else if (a == "-P" || a == "--profile") && i + 1 < n {
+            i = i + 1;
+            opt.profile = list_get(args, i);
+        } else if (a == "-m" || a == "--mem") && i + 1 < n {
+            i = i + 1;
+            opt.mem_mb = parse_int(list_get(args, i), 512);
+        } else if (a == "-c" || a == "--cpu") && i + 1 < n {
+            i = i + 1;
+            opt.cpu_pct = parse_int(list_get(args, i), 100);
+        } else if (a == "-f" || a == "--fds") && i + 1 < n {
+            i = i + 1;
+            opt.max_fds = parse_int(list_get(args, i), 256);
+        } else if (a == "-p" || a == "--procs") && i + 1 < n {
+            i = i + 1;
+            opt.max_procs = parse_int(list_get(args, i), 64);
+        } else if (a == "-t" || a == "--timeout") && i + 1 < n {
+            i = i + 1;
+            opt.timeout_sec = parse_int(list_get(args, i), 60);
+        } else if a == "--format" && i + 1 < n {
+            i = i + 1;
+            opt.format = list_get(args, i);
+        } else if a == "--color" && i + 1 < n {
+            i = i + 1;
+            if list_get(args, i) == "never" { opt.color_mode = false; }
+        } else if !str_starts_with(a, "-") {
+            if chars_len(opt.command) > 0 {
+                opt.command = opt.command + " " + a;
+            } else {
+                opt.command = a;
+            }
+        }
+        i = i + 1;
+    }
+    return opt;
+}

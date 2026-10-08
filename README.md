@@ -54,17 +54,26 @@ oobound-uninstall
 ## 2. CLI Usage
 
 ```
-usage: oobound [options] [ARGUMENTS]...
+usage: oobound [options] [-- <COMMAND> [ARGS...]]
 
 Dynamic memory, CPU cycle, and file descriptor clamp for unvetted subprocesses.
 
 Options:
-  -h, --help           display this help and exit
-  -v, --version        output version information and exit
-      --json           output formatted as JSON Lines
-      --color <WHEN>   colorize output: auto, always, never [default: auto]
-      --theme <NAME>   override active oote palette
-      --mcp            run as Model Context Protocol stdio server
+  -P, --profile <NAME>   preset profile: sandbox, strict, worker, agent [default: strict]
+  -m, --mem <MB>         memory limit in megabytes [default: 512]
+  -c, --cpu <PERCENT>    CPU quota percentage [default: 100]
+  -f, --fds <COUNT>      file descriptor cap [default: 256]
+  -p, --procs <COUNT>    maximum process/task count [default: 64]
+  -t, --timeout <SEC>    maximum runtime timeout in seconds [default: 60]
+      --sandbox          enforce strict filesystem and privilege isolation
+      --no-sandbox       disable strict filesystem sandboxing flags
+      --format <MODE>    output format: full, systemd, prlimit, cgroup [default: full]
+      --audit            audit resource bounds against negative-trust baselines
+      --json             output formatted as JSON Lines
+      --color <WHEN>     colorize output: auto, always, never [default: auto]
+      --mcp              run as Model Context Protocol stdio server
+  -h, --help             display this help and exit
+  -v, --version          output version information and exit
 ```
 
 ---
@@ -81,6 +90,11 @@ Options:
 
 When invoked with `--mcp`, `oobound` runs a JSON-RPC 2.0 stdio server providing structured tools for AI coding agents:
 
+* **`bound_profile`**: Lists standard boundary presets (`sandbox`, `strict`, `worker`, `agent`) with exact thresholds.
+* **`bound_clamp`**: Calculates clamped systemd transient scope and prlimit invocations for unvetted code.
+* **`bound_audit`**: Audits memory, CPU, descriptor, and runtime constraints against security policies.
+* **`bound_stats`**: Queries execution limits, cgroup v2 support, and capability-bounded environment status.
+
 ```bash
 oobound --mcp
 ```
@@ -89,7 +103,7 @@ oobound --mcp
 
 ## 5. Security & Zero Ambient Authority
 
-* **Pure Capability Bounded:** Operates strictly with explicit tokens (&SecCap, &AgentCap, &McpCap). Physical absence of ambient disk/net leakage.
+* **Pure Capability Bounded:** Operates strictly with explicit tokens (&FsReadCap, &ProcessCap, &EnvCap, &McpCap). Physical absence of ambient disk/net leakage.
 * **Negative-Trust Architecture:** Strict input validation and operational limits.
 * **Hermetic Binary:** Standalone zero-dependency executable.
 

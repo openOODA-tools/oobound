@@ -1,5 +1,5 @@
 Name:           oobound
-Version:        0.1.0
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Dynamic memory, CPU cycle, and file descriptor clamp for unvetted subprocesses.
 License:        ASL 2.0

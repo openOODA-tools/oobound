@@ -1,0 +1,144 @@
+// # oobound Model Context Protocol Stdio Server
+//
+// Logline: Dispatches JSON-RPC 2.0 streaming tools for AI agents managing process limits.
+//
+// Setup: Bridges stdio frames to boundary calculators and security auditors.
+//
+// Beats:
+//   1. Handle MCP initialize and tools/list requests.
+//   2. Route bound_profile, bound_clamp, bound_audit, and bound_stats tool calls.
+//   3. Stream line-delimited JSON-RPC 2.0 responses.
+
+import "core/bound_preset.oo";
+import "core/bound_calc.oo";
+import "render/bound_theme.oo";
+import "ipc/json_field.oo";
+
+fn parse_num(s: String, def_val: Int) -> Int {
+    let n: Int = chars_len(s);
+    if n == 0 { return def_val; }
+    let mut res: Int = 0;
+    let mut i: Int = 0;
+    while i < n {
+        let c: String = char_at(s, i);
+        if c == "0" { res = res * 10; }
+        else if c == "1" { res = res * 10 + 1; }
+        else if c == "2" { res = res * 10 + 2; }
+        else if c == "3" { res = res * 10 + 3; }
+        else if c == "4" { res = res * 10 + 4; }
+        else if c == "5" { res = res * 10 + 5; }
+        else if c == "6" { res = res * 10 + 6; }
+        else if c == "7" { res = res * 10 + 7; }
+        else if c == "8" { res = res * 10 + 8; }
+        else if c == "9" { res = res * 10 + 9; }
+        else { return def_val; }
+        i = i + 1;
+    }
+    return res;
+}
+
+fn handle_tools_list(id_val: String) -> String {
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id_val + ",\"result\":{\"tools\":["
+        + "{\"name\":\"bound_profile\",\"description\":\"List available boundary profiles (sandbox, strict, worker, agent)\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}},"
+        + "{\"name\":\"bound_clamp\",\"description\":\"Calculate clamped systemd and prlimit invocations for a command\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"profile\":{\"type\":\"string\"},\"command\":{\"type\":\"string\"},\"mem_mb\":{\"type\":\"number\"},\"cpu_pct\":{\"type\":\"number\"},\"timeout_sec\":{\"type\":\"number\"},\"sandbox\":{\"type\":\"boolean\"}}}},"
+        + "{\"name\":\"bound_audit\",\"description\":\"Audit resource constraints against negative-trust security baselines\",\"inputSchema\":{\"type\":\"object\",\"properties\":{\"mem_mb\":{\"type\":\"number\"},\"cpu_pct\":{\"type\":\"number\"},\"max_fds\":{\"type\":\"number\"},\"max_procs\":{\"type\":\"number\"},\"timeout_sec\":{\"type\":\"number\"}}}},"
+        + "{\"name\":\"bound_stats\",\"description\":\"Query oobound version and capability-bounded environment boundaries\",\"inputSchema\":{\"type\":\"object\",\"properties\":{}}}"
+        + "]}}";
+}
+
+fn handle_tool_call(id_val: String, params: String) -> String {
+    let tool_name: String = json_get_string(params, "name");
+    let args: String = json_get_field(params, "arguments");
+
+    if tool_name == "bound_profile" {
+        let text: String = render_profiles_json();
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id_val + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape_string(text) + "\"}]}}";
+    }
+
+    if tool_name == "bound_clamp" {
+        let prof_name: String = json_get_string(args, "profile");
+        let cmd_str: String = json_get_string(args, "command");
+        let mem_str: String = json_get_field(args, "mem_mb");
+        let cpu_str: String = json_get_field(args, "cpu_pct");
+        let time_str: String = json_get_field(args, "timeout_sec");
+        let sand_str: String = json_get_field(args, "sandbox");
+
+        let mut b: BoundLimits = if chars_len(prof_name) > 0 { find_preset(prof_name) } else { preset_strict() };
+        if chars_len(mem_str) > 0 { b.mem_mb = parse_num(mem_str, b.mem_mb); }
+        if chars_len(cpu_str) > 0 { b.cpu_pct = parse_num(cpu_str, b.cpu_pct); }
+        if chars_len(time_str) > 0 { b.timeout_sec = parse_num(time_str, b.timeout_sec); }
+        if sand_str == "true" { b.sandboxed = true; } else if sand_str == "false" { b.sandboxed = false; }
+
+        let text: String = render_limits_json(b, cmd_str);
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id_val + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape_string(text) + "\"}]}}";
+    }
+
+    if tool_name == "bound_audit" {
+        let mem_str: String = json_get_field(args, "mem_mb");
+        let cpu_str: String = json_get_field(args, "cpu_pct");
+        let fds_str: String = json_get_field(args, "max_fds");
+        let proc_str: String = json_get_field(args, "max_procs");
+        let time_str: String = json_get_field(args, "timeout_sec");
+
+        let b: BoundLimits = BoundLimits {
+            name: "audit_target",
+            mem_mb: parse_num(mem_str, 512),
+            cpu_pct: parse_num(cpu_str, 100),
+            max_fds: parse_num(fds_str, 256),
+            max_procs: parse_num(proc_str, 64),
+            timeout_sec: parse_num(time_str, 60),
+            sandboxed: true
+        };
+        let text: String = audit_bounds(b);
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id_val + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape_string(text) + "\"}]}}";
+    }
+
+    if tool_name == "bound_stats" {
+        let text: String = "{\"name\":\"oobound\",\"version\":\"0.2.0\",\"architecture\":\"x86_64\",\"capabilities\":[\"&FsReadCap\",\"&ProcessCap\",\"&EnvCap\",\"&McpCap\"],\"cgroup_support\":\"v2\",\"transient_scopes\":true}";
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id_val + ",\"result\":{\"content\":[{\"type\":\"text\",\"text\":\"" + json_escape_string(text) + "\"}]}}";
+    }
+
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id_val + ",\"error\":{\"code\":-32601,\"message\":\"Unknown tool: " + tool_name + "\"}}";
+}
+
+pub fn handle_mcp_message(line: String) -> String {
+    let method: String = json_get_string(line, "method");
+    let raw_id: String = json_get_field(line, "id");
+    let id_val: String = if chars_len(raw_id) > 0 { raw_id } else { "null" };
+
+    if method == "initialize" {
+        return "{\"jsonrpc\":\"2.0\",\"id\":" + id_val + ",\"result\":{\"protocolVersion\":\"2024-11-05\",\"capabilities\":{\"tools\":{}},\"serverInfo\":{\"name\":\"oobound\",\"version\":\"0.2.0\"}}}";
+    }
+    if method == "notifications/initialized" {
+        return "";
+    }
+    if method == "tools/list" {
+        return handle_tools_list(id_val);
+    }
+    if method == "tools/call" {
+        let params: String = json_get_field(line, "params");
+        return handle_tool_call(id_val, params);
+    }
+    return "{\"jsonrpc\":\"2.0\",\"id\":" + id_val + ",\"error\":{\"code\":-32600,\"message\":\"Unsupported method: " + method + "\"}}";
+}
+
+pub fn run_mcp_server(fs: &FsReadCap) {
+    let mut running: Bool = true;
+    while running {
+        let line_res: Result[String, String] = oo_read_stdin_chunk(fs, 8192);
+        if !line_res.is_ok() {
+            running = false;
+        } else {
+            let line: String = match line_res { Ok(s) => s, Err(_) => "" };
+            let trimmed: String = str_trim(line);
+            if chars_len(trimmed) == 0 {
+                running = false;
+            } else {
+                let resp: String = handle_mcp_message(trimmed);
+                if chars_len(resp) > 0 {
+                    println(resp);
+                }
+            }
+        }
+    }
+}

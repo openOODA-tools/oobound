@@ -1,0 +1,19 @@
+// # oobound Render Module Anchor
+//
+// Logline: Integrates rendering components and ANSI output formatters for oobound.
+//
+// Setup: Exports theme renderers and JSON serialization endpoints.
+//
+// Beats:
+//   1. Expose terminal panel renderers.
+//   2. Expose JSON telemetry and audit formatters.
+//   3. Provide render subsystem health verification.
+
+import "core/bound_preset.oo";
+import "render/bound_theme.oo";
+
+pub fn verify_render_subsystem() -> Bool {
+    let p: BoundLimits = preset_sandbox();
+    let j: String = render_limits_json(p, "echo test");
+    return str_starts_with(j, "{\"name\":\"sandbox\"");
+}

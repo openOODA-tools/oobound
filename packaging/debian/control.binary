@@ -1,0 +1,10 @@
+Package: oobound
+Version: 0.2.0-1
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: openOODA-tools <ops@openooda.org>
+Description: Sovereign RUNTIME BOUNDS
+ Dynamic memory, CPU cycle, and file descriptor clamp for unvetted subprocesses.
+ 100% pure native openOODA (.oo) utility with zero ambient authority,
+ dual POSIX CLI and streaming JSON-RPC 2.0 Model Context Protocol (MCP) server.
